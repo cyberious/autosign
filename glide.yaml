@@ -1,0 +1,4 @@
+package: github.com/cyberious/autosign
+import:
+- package: gopkg.in/yaml.v2
+  version: ^2.1.1
