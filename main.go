@@ -109,7 +109,7 @@ func logCertDetails(cr *x509.CertificateRequest) {
 	}
 }
 
-func hostnameMatch(hostname string) bool {
+func hostnameMatch(hostname string, config AutosignConfig) bool {
 	for _, pattern := range config.AutosignPatterns {
 		info("Checking pattern '%s'\n", pattern)
 		if _, err := regexp.Compile(pattern); err != nil {
@@ -145,8 +145,8 @@ func main() {
 			info("Signing cert for %s: Reason, NO DNS Alt Names matches no pattern match set \n", hostname)
 			os.Exit(0)
 		} else {
-			if hostnameMatch(hostname) {
-
+			if hostnameMatch(hostname, config) {
+				os.Exit(0)
 			} else {
 				os.Exit(1)
 			}
