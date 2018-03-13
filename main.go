@@ -6,13 +6,13 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
+	"github.com/cyberious/autosign/x509utils"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"os"
-	"regexp"
-	"github.com/cyberious/autosign/x509utils"
 	"os/exec"
+	"regexp"
 )
 
 var logger *log.Logger
@@ -115,7 +115,7 @@ func logCertDetails(cr *x509.CertificateRequest) {
 	}
 }
 
-func hostnameMatch(hostname string) bool {
+func hostnameMatch(hostname string, config AutosignConfig) bool {
 	for _, pattern := range config.AutosignPatterns {
 		logInfo("Checking pattern '%s'\n", pattern)
 		posixRegex, err := regexp.CompilePOSIX(pattern)
@@ -152,7 +152,7 @@ func main() {
 			logInfo("Signing cert for %s: Reason, NO DNS Alt Names matches no pattern match set \n", hostname)
 			os.Exit(0)
 		} else {
-			if hostnameMatch(hostname) {
+			if hostnameMatch(hostname, config) {
 				os.Exit(0)
 			} else {
 				os.Exit(1)
