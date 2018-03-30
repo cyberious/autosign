@@ -7,46 +7,29 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/cyberious/autosign/x509utils"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"regexp"
+	"github.com/cyberious/autosign/config"
 )
 
 var logger *log.Logger
-var config AutosignConfig
+var autosignConfig config.AutosignConfig
 
 var subjectNameOid = asn1.ObjectIdentifier{2, 5, 29, 17}
 var dnsAltNames = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 14}
 
-const configFile = "/etc/puppetlabs/puppet/autosign.yaml"
-const logFile = "puppetlabs-autosign.log"
-
-type AutosignConfig struct {
-	AutosignChallenge string   `yaml:"challengePassword"`
-	AutosignPatterns  []string `yaml:"autosignPatterns"`
-	LogFile           string   `yaml:"logFile"`
-}
 
 func logInfo(msg string, int ...interface{}) {
 	fmt.Printf(msg, int...)
 	logger.Printf(msg, int...)
 }
+
 func logError(err error, msg string, int ...interface{}) {
 	fmt.Errorf(msg, int...)
 	logger.Fatal(err)
-}
-
-func pickFile(file1 string, file2 string) string {
-	if fileExists(file1) {
-		return file1
-	}
-	if fileExists(file2) {
-		return file2
-	}
-	return ""
 }
 
 func checkError(err error) {
@@ -54,30 +37,6 @@ func checkError(err error) {
 		logError(err, "An error has occured, halting: %s", err)
 		panic(err)
 	}
-}
-
-func fileExists(filename string) bool {
-	_, err := os.Stat(filename)
-	return !os.IsNotExist(err)
-}
-
-func loadConfig() AutosignConfig {
-	t := AutosignConfig{LogFile: logFile}
-	configYaml := pickFile(configFile, "autosign.yaml")
-	if configYaml != "" {
-		autosign, err := ioutil.ReadFile(configYaml)
-		yaml.Unmarshal(autosign, &t)
-		fmt.Printf("Loaded config map of:\n\tPatterns: %s\n\tLogfile: %s\n\tChallenge: %s\n", t.AutosignPatterns, t.LogFile, t.AutosignChallenge)
-		if err != nil {
-			if err := yaml.Unmarshal([]byte(autosign), &t); err != nil {
-				logger.Fatalf("Unable to read config file;\n%s", err)
-			}
-		}
-	} else {
-		fmt.Println("Unable to read file %s", configYaml)
-	}
-	fmt.Printf("Loaded config file %s, with values %s \n", configYaml, t)
-	return t
 }
 
 func readCert() []byte {
@@ -92,7 +51,7 @@ func readCert() []byte {
 
 func createLogger() {
 	fmt.Println("Creating log")
-	f, err := os.Create(config.LogFile)
+	f, err := os.Create(autosignConfig.LogFile)
 	checkError(err)
 	writer, err := os.OpenFile(f.Name(), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
@@ -115,8 +74,8 @@ func logCertDetails(cr *x509.CertificateRequest) {
 	}
 }
 
-func hostnameMatch(hostname string, config AutosignConfig) bool {
-	for _, pattern := range config.AutosignPatterns {
+func hostnameMatch(hostname string, autosignConfig config.AutosignConfig) bool {
+	for _, pattern := range autosignConfig.AutosignPatterns {
 		logInfo("Checking pattern '%s'\n", pattern)
 		posixRegex, err := regexp.CompilePOSIX(pattern)
 		if err != nil {
@@ -133,8 +92,8 @@ func hostnameMatch(hostname string, config AutosignConfig) bool {
 }
 func main() {
 	hostname := os.Args[1]
-	fmt.Printf("Autosign for %s and config file %s\n", hostname, configFile)
-	config = loadConfig()
+	fmt.Printf("Autosign for %s \n", hostname)
+	autosignConfig = config.NewAutosignConfig()
 	createLogger()
 	logInfo("Checking certificate for %s \n", hostname)
 	cert := readCert()
@@ -148,24 +107,24 @@ func main() {
 	logCertDetails(cr)
 	if len(cr.DNSNames) == 0 {
 		logInfo("No DNS Alt Names\n")
-		if len(config.AutosignPatterns) == 0 {
+		if len(autosignConfig.AutosignPatterns) == 0 {
 			logInfo("Signing cert for %s: Reason, NO DNS Alt Names matches no pattern match set \n", hostname)
 			os.Exit(0)
 		} else {
-			if hostnameMatch(hostname, config) {
+			if hostnameMatch(hostname, autosignConfig) {
 				os.Exit(0)
 			} else {
 				os.Exit(1)
 			}
 		}
 	}
-	if config.AutosignChallenge != "" {
+	if autosignConfig.AutosignChallenge != "" {
 		pass, err := x509utils.ParseChallengePassword(pemCert.Bytes)
 		if err != nil {
 			logError(err, "Error occurred trying to parse challengePassword for %s \n", hostname)
 		}
 		logInfo("Checking to see if password\n")
-		if pass == config.AutosignChallenge {
+		if pass == autosignConfig.AutosignChallenge {
 			logInfo("Challenge password accepted")
 			app := "/opt/puppetlabs/bin/puppet"
 			args := []string{"cert", "sign", hostname, "--allow-dns-alt-names", "--ssldir", "/etc/puppetlabs/puppet/ssl"}
