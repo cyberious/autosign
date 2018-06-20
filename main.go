@@ -5,22 +5,27 @@ import (
 
 	"encoding/asn1"
 	"encoding/pem"
+	"flag"
 	"fmt"
+	"github.com/cyberious/autosign/config"
 	"github.com/cyberious/autosign/x509utils"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"regexp"
-	"github.com/cyberious/autosign/config"
+	"strings"
 )
 
-var logger *log.Logger
-var autosignConfig config.AutosignConfig
-
-var subjectNameOid = asn1.ObjectIdentifier{2, 5, 29, 17}
-var dnsAltNames = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 14}
-
+var (
+	logger         *log.Logger
+	autosignConfig config.AutosignConfig
+	configFiles    []string
+	hostname       string
+	debug          bool
+	subjectNameOid = asn1.ObjectIdentifier{2, 5, 29, 17}
+	dnsAltNames    = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 14}
+)
 
 func logInfo(msg string, int ...interface{}) {
 	fmt.Printf(msg, int...)
@@ -77,7 +82,7 @@ func logCertDetails(cr *x509.CertificateRequest) {
 func hostnameMatch(hostname string, autosignConfig config.AutosignConfig) bool {
 	for _, pattern := range autosignConfig.AutosignPatterns {
 		logInfo("Checking pattern '%s'\n", pattern)
-		posixRegex, err := regexp.CompilePOSIX(pattern)
+		posixRegex, err := regexp.Compile(pattern)
 		if err != nil {
 			logInfo("Failed to compile pattern %s\n\t%s\n", pattern, err)
 		} else {
@@ -90,10 +95,20 @@ func hostnameMatch(hostname string, autosignConfig config.AutosignConfig) bool {
 	logInfo("Do not sign %s Failed to match any pattern\n", hostname)
 	return false
 }
+
+func argsParser() {
+	hostname = os.Args[1]
+	defaultAutosignConfigFiles := []string{"/etc/puppetlabs/puppet/autosign.json", "/etc/puppetlabs/puppet/autosign.yaml", "autosign.json", "autosign.yaml"}
+	flag.String("config", strings.Join(defaultAutosignConfigFiles, ","), "Config files to parse for")
+	flag.BoolVar(&debug, "debug", false, "Enable debug mode")
+	flag.Parse()
+}
+
 func main() {
-	hostname := os.Args[1]
+	argsParser()
 	fmt.Printf("Autosign for %s \n", hostname)
-	autosignConfig = config.NewAutosignConfig()
+	defaultAutosignConfigFiles := []string{"/etc/puppetlabs/puppet/autosign.json", "/etc/puppetlabs/puppet/autosign.yaml", "autosign.json", "autosign.yaml",}
+	autosignConfig = config.NewAutosignConfig(defaultAutosignConfigFiles)
 	createLogger()
 	logInfo("Checking certificate for %s \n", hostname)
 	cert := readCert()
