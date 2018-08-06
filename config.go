@@ -1,12 +1,12 @@
-package config
+package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"regexp"
-	"encoding/json"
 )
 
 const configDefaultLocation = "/etc/puppetlabs/puppet/"
@@ -39,7 +39,7 @@ func readConfigFile(config string) []byte {
 	return autosign
 }
 
-func NewAutosignConfig(autoloadConfigFiles []string) AutosignConfig {
+func newAutosignConfig(autoloadConfigFiles []string) AutosignConfig {
 	t := AutosignConfig{LogFile: logFile}
 	currentConfigFile := pickFile(autoloadConfigFiles)
 
@@ -47,6 +47,7 @@ func NewAutosignConfig(autoloadConfigFiles []string) AutosignConfig {
 		fmt.Printf("Unable to read file %s\n", currentConfigFile)
 		return t
 	}
+
 	autosign := readConfigFile(currentConfigFile)
 	fmt.Printf("Parsing config file %s\n", currentConfigFile)
 	if matchPattern("/.*.yaml/", currentConfigFile) {
@@ -60,6 +61,7 @@ func NewAutosignConfig(autoloadConfigFiles []string) AutosignConfig {
 			fmt.Errorf("Unable to read config file;\n%s\n", err)
 		}
 	}
+
 	fmt.Printf(
 		"Loaded config map of:\n\tPatterns: %s\n\tLogfile: %s\n\tChallenge: %s\n",
 		t.AutosignPatterns,
