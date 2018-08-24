@@ -9,7 +9,14 @@ import (
 	"os/exec"
 )
 
-func autosignChallengMatch(hostname string, pcr cert.PuppetCertificateRequest, autosignConfig AutosignConfig) bool {
+type Autosign struct {
+	Hostname           string
+	Config             AutosignConfig
+	CertificateRequest cert.PuppetCertificateRequest
+	Logger             Log
+}
+
+func autosignChallengMatch(hostname string, pcr cert.PuppetCertificateRequest, autosignConfig AutosignConfigFile) (bool, error) {
 	if autosignConfig.AutosignChallenge != "" {
 		pass, err := pcr.ChallengePassword()
 		if err != nil {
@@ -39,7 +46,7 @@ func logCertDetails(cr *x509.CertificateRequest) {
 	}
 }
 
-func hostnameMatch(hostname string, autosignConfig AutosignConfig) bool {
+func hostnameMatch(hostname string, autosignConfig AutosignConfigFile) bool {
 	for _, pattern := range autosignConfig.AutosignPatterns {
 		logInfo("Checking pattern '%s'\n", pattern)
 		posixRegex, err := regexp.Compile(pattern)
@@ -56,7 +63,7 @@ func hostnameMatch(hostname string, autosignConfig AutosignConfig) bool {
 	return false
 }
 
-func checkDNSAltNamesIfAny(hostname string, pcr cert.PuppetCertificateRequest, autosignConfig AutosignConfig) bool {
+func checkDNSAltNamesIfAny(hostname string, pcr cert.PuppetCertificateRequest, autosignConfig AutosignConfigFile) bool {
 	if !pcr.HasDNSNames() {
 		logInfo("No DNS Alt Names\n")
 		if len(autosignConfig.AutosignPatterns) == 0 {

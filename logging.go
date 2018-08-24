@@ -6,17 +6,21 @@ import (
 	"os"
 )
 
-func logInfo(msg string, int ...interface{}) {
+type Log struct {
+	Logger *log.Logger
+}
+
+func (l *Log) Info(msg string, int ...interface{}) {
 	fmt.Printf(msg, int...)
-	logger.Printf(msg, int...)
+	l.Logger.Printf(msg, int...)
 }
 
-func logError(err error, msg string, int ...interface{}) {
+func (l *Log) Error(err error, msg string, int ...interface{}) {
 	fmt.Errorf(msg, int...)
-	logger.Fatal(err)
+	l.Logger.Fatal(err)
 }
 
-func createLogger() {
+func createLogger(autosignConfig AutosignConfigFile) *Log {
 	fmt.Println("Creating log")
 	f, err := os.Create(autosignConfig.LogFile)
 	checkError(err)
@@ -25,5 +29,5 @@ func createLogger() {
 		fmt.Errorf("error opening file: %v", err)
 	}
 	defer f.Close()
-	logger = log.New(writer, "[autosign]", 1)
+	return *Log{log.New(writer, "[autosign]", 1)}
 }

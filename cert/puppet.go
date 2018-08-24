@@ -6,11 +6,12 @@ import (
 
 	"encoding/asn1"
 	"encoding/pem"
+	"fmt"
 )
 
 type PuppetCertificateRequest struct {
 	PemBlock *pem.Block
-
+	Hostname string
 	CertRequest *x509.CertificateRequest
 }
 
@@ -20,6 +21,7 @@ func (pcr *PuppetCertificateRequest) HasDNSNames() bool {
 
 func NewPuppetCertificateRequest(bytes []byte) (PuppetCertificateRequest, error) {
 	pcr := PuppetCertificateRequest{}
+	fmt.Println("Attemping to decode certificate request")
 	pemBlock, _ := pem.Decode(bytes)
 
 	pcr.PemBlock = pemBlock
