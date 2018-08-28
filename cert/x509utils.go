@@ -16,11 +16,6 @@ type CertificateRequest struct {
 	ChallengePassword string
 }
 
-type passwordChallengeAttribute struct {
-	Type  asn1.ObjectIdentifier
-	Value []string `asn1:"set"`
-}
-
 // The structures below are copied from the Go standard library x509 package.
 
 type publicKeyInfo struct {

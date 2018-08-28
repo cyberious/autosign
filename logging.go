@@ -20,14 +20,20 @@ func (l *Log) Error(err error, msg string, int ...interface{}) {
 	l.Logger.Fatal(err)
 }
 
-func createLogger(autosignConfig AutosignConfigFile) *Log {
+func createLogger(autosignConfig AutosignConfig) *Log {
 	fmt.Println("Creating log")
-	f, err := os.Create(autosignConfig.LogFile)
-	checkError(err)
-	writer, err := os.OpenFile(f.Name(), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		fmt.Errorf("error opening file: %v", err)
+	if f, err := os.Create(autosignConfig.LogFile); err != nil {
+		fmt.Printf("Unable to create logfile: %s\n", err)
+	} else {
+		writer, err := os.OpenFile(f.Name(), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			fmt.Errorf("error opening file: %v", err)
+		}
+		defer f.Close()
+		logger := log.New(writer, "[autosign]", 1)
+		l := Log{}
+		l.Logger = logger
+		return &l
 	}
-	defer f.Close()
-	return *Log{log.New(writer, "[autosign]", 1)}
+	return nil
 }

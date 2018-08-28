@@ -14,16 +14,12 @@ const configDefaultLocation = "/etc/puppetlabs/puppet/"
 const configFile = "/etc/puppetlabs/puppet/autosign.yaml"
 const logFile = "puppetlabs-autosign.log"
 
-type AutosignConfigFile struct {
+type AutosignConfig struct {
 	AutosignChallenge string   `json:"challengePassword", yaml:"challengePassword"`
 	AutosignPatterns  []string `json:"autosignPatterns", yaml:"autosignPatterns"`
 	LogFile           string   `json:"logFile", yaml:"logFile"`
 	Debug             bool     `json:"debug", yaml:debug"`
-}
-
-type AutosignConfig struct {
-	ConfigFile AutosignConfigFile
-	Logger     *log.Logger
+	Logger            *log.Logger
 }
 
 func matchPattern(pattern string, subject string) bool {
@@ -44,8 +40,8 @@ func readConfigFile(config string) []byte {
 	return autosign
 }
 
-func newAutosignConfig(autoloadConfigFiles []string) AutosignConfigFile {
-	t := AutosignConfigFile{LogFile: logFile}
+func newAutosignConfig(autoloadConfigFiles []string) AutosignConfig {
+	t := AutosignConfig{LogFile: logFile}
 	currentConfigFile := pickFile(autoloadConfigFiles)
 
 	if currentConfigFile == "" {

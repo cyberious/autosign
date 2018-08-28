@@ -2,21 +2,36 @@ package cert
 
 import (
 	"crypto/x509"
-	"crypto/x509/pkix"
-
-	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
+	"encoding/asn1"
+	"crypto/x509/pkix"
 )
 
 type PuppetCertificateRequest struct {
-	PemBlock *pem.Block
-	Hostname string
+	PemBlock    *pem.Block
+	Hostname    string
 	CertRequest *x509.CertificateRequest
 }
 
 func (pcr *PuppetCertificateRequest) HasDNSNames() bool {
 	return len(pcr.CertRequest.DNSNames) > 0
+}
+
+// Check to see if the password is a match without exposing the actual password
+// Returns false and nil if no password exists in the file
+func (pcr *PuppetCertificateRequest) PasswordMatch(pass string) (bool, error) {
+	if csrPass, err := pcr.challengePassword(); err != nil {
+		return false, err
+	} else {
+		return csrPass == pass, nil
+	}
+	return false, nil
+}
+
+func (pcr *PuppetCertificateRequest) HasPassword() bool {
+	pass, _ := pcr.challengePassword()
+	return pass != ""
 }
 
 func NewPuppetCertificateRequest(bytes []byte) (PuppetCertificateRequest, error) {
@@ -32,7 +47,8 @@ func NewPuppetCertificateRequest(bytes []byte) (PuppetCertificateRequest, error)
 func (pcr *PuppetCertificateRequest) Bytes() []byte {
 	return pcr.PemBlock.Bytes
 }
-func (pcr *PuppetCertificateRequest) ChallengePassword() (string, error) {
+
+func (pcr *PuppetCertificateRequest) challengePassword() (string, error) {
 	pass, err := ParseChallengePassword(pcr.Bytes())
 	return pass, err
 }
