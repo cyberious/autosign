@@ -20,6 +20,11 @@ func (l *Log) Error(err error, msg string, int ...interface{}) {
 	l.Logger.Fatal(err)
 }
 
+func Warn(msg string, int ...interface{}) {
+	fmt.Printf("[WARNING] "+msg, int...)
+	log.Logger.Printf("[WARNING] "+msg, int)
+}
+
 func createLogger(autosignConfig AutosignConfig) *Log {
 	fmt.Println("Creating log")
 	if f, err := os.Create(autosignConfig.LogFile); err != nil {

@@ -2,10 +2,6 @@ package main
 
 import (
 	"github.com/cyberious/autosign/cert"
-	"os/exec"
-	"os"
-	"fmt"
-	"regexp"
 )
 
 type Autosign struct {
@@ -29,11 +25,33 @@ func (a *Autosign) AutosignChallengMatch() (bool, error) {
 }
 
 func (a *Autosign) DnsAltNameMatch() (bool, error) {
+	pcr := a.CertificateRequest
+	if !pcr.HasDNSNames() {
+		a.Logger.Info("No DNS Alt Names\n")
+		if len(a.Config.AutosignPatterns) == 0 {
+			a.Logger.Info("Signing cert for %s: Reason, NO DNS Alt Names matches no pattern match set \n", a.Hostname)
+			return true, nil
+		} else {
+			return a.HostnameMatch(), nil
+		}
+	}
 	return false, nil
 }
 
 func (a *Autosign) LogCertDetails() {
-
+	cr := a.CertificateRequest
+	for i, name := range cr.Subject.Names {
+		a.Logger.Info("Name %d: \n\tType: %s\n\tValue: %s\n", i, name, name.Value)
+	}
+	a.Logger.Info("Subject: %s \nDNSNames: %s\n", cr.Subject.Names, cr.DNSNames)
+	if len(cr.Extensions) > 0 {
+		a.Logger.Info("Extensions: \n")
+		for i, ext := range cr.Extensions {
+			if len(ext.Value) != 0 {
+				a.Logger.Info("\t%d: %s\n", i, ext)
+			}
+		}
+	}
 }
 
 func (a *Autosign) HostnameMatch() (bool) {
@@ -42,7 +60,7 @@ func (a *Autosign) HostnameMatch() (bool) {
 		a.Logger.Info("Checking pattern '%s'\n", pattern)
 		posixRegex, err := regexp.Compile(pattern)
 		if err != nil {
-			a.Logger.Info("Failed to compile pattern %s\n\t%s\n", pattern, err)
+			a.Logger.Warning("Failed to compile pattern %s\n\t%s\n", pattern, err)
 		} else {
 			if posixRegex.MatchString(a.Hostname) {
 				a.Logger.Info("Matching pattern %s for Hostname %s\n", pattern, a.Hostname)
@@ -58,38 +76,6 @@ func (a *Autosign) CheckDNSAltNamesIfAny() bool {
 	return false
 }
 
-//
-//func logCertDetails(cr *x509.CertificateRequest) {
-//	for i, name := range cr.Subject.Names {
-//		logInfo("Name %d: \n\tType: %s\n\tValue: %s\n", i, name, name.Value)
-//	}
-//	logInfo("Subject: %s \nDNSNames: %s\n", cr.Subject.Names, cr.DNSNames)
-//	if len(cr.Extensions) > 0 {
-//		logInfo("Extensions: \n")
-//		for i, ext := range cr.Extensions {
-//			if len(ext.Value) != 0 {
-//				logInfo("\t%d: %s\n", i, ext)
-//			}
-//		}
-//	}
-//}
-//
-//func hostnameMatch(hostname string, autosignConfig AutosignConfigFile) bool {
-//	for _, pattern := range autosignConfig.AutosignPatterns {
-//		logInfo("Checking pattern '%s'\n", pattern)
-//		posixRegex, err := regexp.Compile(pattern)
-//		if err != nil {
-//			logInfo("Failed to compile pattern %s\n\t%s\n", pattern, err)
-//		} else {
-//			if posixRegex.MatchString(hostname) {
-//				logInfo("Matching pattern %s for Hostname %s\n", pattern, hostname)
-//				return true /* return on first match */
-//			}
-//		}
-//	}
-//	logInfo("Do not sign %s Failed to match any pattern\n", hostname)
-//	return false
-//}
 //
 //func checkDNSAltNamesIfAny(hostname string, pcr cert.PuppetCertificateRequest, autosignConfig AutosignConfigFile) bool {
 //	if !pcr.HasDNSNames() {

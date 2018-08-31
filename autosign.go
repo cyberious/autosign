@@ -10,6 +10,7 @@ import (
 	"github.com/cyberious/autosign/cert"
 	"io/ioutil"
 	"strconv"
+	"crypto/x509"
 )
 
 var (
@@ -64,6 +65,8 @@ func main() {
 	}
 }
 
+
+
 func shouldSignCert(as Autosign) {
 	fmt.Printf("Autosign for %s \n", as.Hostname)
 	if flag.Parsed() && is_debug() {
@@ -100,7 +103,7 @@ func shouldSignCert(as Autosign) {
 	}
 }
 
-func readCert() ([]byte, error) {
+func readCert() (*x509.CertificateRequest, ) {
 	fileIn := os.Stdin
 	if fileIn == nil {
 		return []byte{}, errors.New("No file was piped in, we should exit as a result, nothing to assert")
