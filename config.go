@@ -40,7 +40,7 @@ func readConfigFile(config string) []byte {
 	return autosign
 }
 
-func newAutosignConfig(autoloadConfigFiles []string) AutosignConfig {
+func NewAutosignConfig(autoloadConfigFiles []string) AutosignConfig {
 	t := AutosignConfig{LogFile: logFile}
 	currentConfigFile := pickFile(autoloadConfigFiles)
 
@@ -69,7 +69,6 @@ func newAutosignConfig(autoloadConfigFiles []string) AutosignConfig {
 		t.LogFile,
 		t.AutosignChallenge)
 
-	fmt.Printf("Loaded config file %s, with values %s \n", currentConfigFile, t)
 	return t
 }
 

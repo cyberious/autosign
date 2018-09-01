@@ -20,9 +20,9 @@ func (l *Log) Error(err error, msg string, int ...interface{}) {
 	l.Logger.Fatal(err)
 }
 
-func Warn(msg string, int ...interface{}) {
+func (l *Log) Warn(msg string, int ...interface{}) {
 	fmt.Printf("[WARNING] "+msg, int...)
-	log.Logger.Printf("[WARNING] "+msg, int)
+	l.Logger.Printf("[WARNING] "+msg, int)
 }
 
 func createLogger(autosignConfig AutosignConfig) *Log {

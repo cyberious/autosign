@@ -2,12 +2,16 @@ package main
 
 import (
 	"github.com/cyberious/autosign/cert"
+	"os/exec"
+	"os"
+	"fmt"
+	"regexp"
 )
 
 type Autosign struct {
 	Hostname           string
 	Config             AutosignConfig
-	CertificateRequest cert.PuppetCertificateRequest
+	CertificateRequest *cert.PuppetCertificateRequest
 	Logger             *Log
 }
 
@@ -48,7 +52,7 @@ func (a *Autosign) LogCertDetails() {
 		a.Logger.Info("Extensions: \n")
 		for i, ext := range cr.Extensions {
 			if len(ext.Value) != 0 {
-				a.Logger.Info("\t%d: %s\n", i, ext)
+				a.Logger.Info("\t%d: %s\n", i, ext.Id.String())
 			}
 		}
 	}
@@ -60,7 +64,7 @@ func (a *Autosign) HostnameMatch() (bool) {
 		a.Logger.Info("Checking pattern '%s'\n", pattern)
 		posixRegex, err := regexp.Compile(pattern)
 		if err != nil {
-			a.Logger.Warning("Failed to compile pattern %s\n\t%s\n", pattern, err)
+			a.Logger.Warn("Failed to compile pattern %s\n\t%s\n", pattern, err)
 		} else {
 			if posixRegex.MatchString(a.Hostname) {
 				a.Logger.Info("Matching pattern %s for Hostname %s\n", pattern, a.Hostname)

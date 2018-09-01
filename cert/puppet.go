@@ -9,13 +9,18 @@ import (
 )
 
 type PuppetCertificateRequest struct {
-	PemBlock    *pem.Block
-	Hostname    string
-	CertRequest *x509.CertificateRequest
+	Hostname string
+	PemBlock *pem.Block
+	*x509.CertificateRequest
 }
 
 func (pcr *PuppetCertificateRequest) HasDNSNames() bool {
-	return len(pcr.CertRequest.DNSNames) > 0
+	if pcr.CertificateRequest == nil {
+		return false
+	}
+
+	fmt.Println("Attempting to parse for DNS Names")
+	return len(pcr.CertificateRequest.DNSNames) > 0
 }
 
 // Check to see if the password is a match without exposing the actual password
@@ -34,14 +39,17 @@ func (pcr *PuppetCertificateRequest) HasPassword() bool {
 	return pass != ""
 }
 
-func NewPuppetCertificateRequest(bytes []byte) (PuppetCertificateRequest, error) {
-	pcr := PuppetCertificateRequest{}
+func NewPuppetCertificateRequest(bytes []byte) (*PuppetCertificateRequest, error) {
 	fmt.Println("Attemping to decode certificate request")
-	pemBlock, _ := pem.Decode(bytes)
+	pemBlock, _ := pem.Decode(bytes);
+	cr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
 
-	pcr.PemBlock = pemBlock
+	if err != nil {
+		fmt.Printf("An error has occured %s", err)
+		return nil, err
+	}
 
-	return pcr, nil
+	return &PuppetCertificateRequest{Hostname: "", PemBlock: pemBlock, CertificateRequest: cr}, nil
 }
 
 func (pcr *PuppetCertificateRequest) Bytes() []byte {
@@ -81,7 +89,7 @@ var oidPuppetMap = map[string]asn1.ObjectIdentifier{
 	"pp_hostname":         {1, 3, 6, 1, 4, 1, 34380, 1, 1, 25},
 }
 
-func getPuppetExtensions() []pkix.Extension {
+func PuppetExtensions() []pkix.Extension {
 	exts := []pkix.Extension{}
 	for k := range oidPuppetMap {
 		exts = append(exts, pkix.Extension{Id: oidPuppetMap[k]})
