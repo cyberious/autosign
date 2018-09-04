@@ -5,16 +5,17 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"os"
-	"strings"
 	"github.com/cyberious/autosign/cert"
 	"io/ioutil"
+	"os"
+	"strings"
 )
 
 var (
 	subjectNameOid = asn1.ObjectIdentifier{2, 5, 29, 17}
 	dnsAltNames    = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 14}
 	debug          = false
+	logger         Log
 )
 
 func init() {
@@ -25,7 +26,6 @@ func init() {
 }
 
 func isDebug() bool {
-
 	return debug
 }
 

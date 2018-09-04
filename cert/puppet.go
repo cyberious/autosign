@@ -2,14 +2,13 @@ package cert
 
 import (
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
-	"encoding/asn1"
-	"crypto/x509/pkix"
 )
 
 type PuppetCertificateRequest struct {
-	Hostname string
 	PemBlock *pem.Block
 	*x509.CertificateRequest
 }
@@ -41,7 +40,7 @@ func (pcr *PuppetCertificateRequest) HasPassword() bool {
 
 func NewPuppetCertificateRequest(bytes []byte) (*PuppetCertificateRequest, error) {
 	fmt.Println("Attemping to decode certificate request")
-	pemBlock, _ := pem.Decode(bytes);
+	pemBlock, _ := pem.Decode(bytes)
 	cr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
 
 	if err != nil {
@@ -49,7 +48,7 @@ func NewPuppetCertificateRequest(bytes []byte) (*PuppetCertificateRequest, error
 		return nil, err
 	}
 
-	return &PuppetCertificateRequest{Hostname: "", PemBlock: pemBlock, CertificateRequest: cr}, nil
+	return &PuppetCertificateRequest{PemBlock: pemBlock, CertificateRequest: cr}, nil
 }
 
 func (pcr *PuppetCertificateRequest) Bytes() []byte {

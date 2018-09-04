@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/cyberious/autosign/cert"
-	"os/exec"
-	"os"
 	"fmt"
+	"github.com/cyberious/autosign/cert"
+	"os"
+	"os/exec"
 	"regexp"
 )
 
@@ -58,22 +58,25 @@ func (a *Autosign) LogCertDetails() {
 	}
 }
 
-func (a *Autosign) HostnameMatch() (bool) {
+func (a *Autosign) HostnameMatch() bool {
 	a.Logger.Info("Begining hostnamematch for %s\n", a.Hostname)
 	for _, pattern := range a.Config.AutosignPatterns {
 		a.Logger.Info("Checking pattern '%s'\n", pattern)
-		posixRegex, err := regexp.Compile(pattern)
-		if err != nil {
+		if match, err := regexp.MatchString(pattern, a.Hostname); err != nil {
 			a.Logger.Warn("Failed to compile pattern %s\n\t%s\n", pattern, err)
 		} else {
-			if posixRegex.MatchString(a.Hostname) {
-				a.Logger.Info("Matching pattern %s for Hostname %s\n", pattern, a.Hostname)
+			if match {
+				a.Logger.Info("Matching pattern %s for CertName %s\n", pattern, a.Hostname)
 				return true /* return on first match */
 			}
 		}
 	}
 	a.Logger.Info("Do not sign %s Failed to match any pattern\n", a.Hostname)
 	return false
+}
+
+func HostnameMatch(ac AutosignConfig, hostname string) {
+
 }
 
 func (a *Autosign) CheckDNSAltNamesIfAny() bool {

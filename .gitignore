@@ -1,0 +1,4 @@
+autosign
+vendor/*
+glide.lock
+puppetlabs-autosign.log

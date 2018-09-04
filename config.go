@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"log"
 	"os"
 	"regexp"
-	"log"
 )
 
 const configDefaultLocation = "/etc/puppetlabs/puppet/"
