@@ -6,6 +6,8 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
+	"github.com/pkg/errors"
+	"strings"
 )
 
 type PuppetCertificateRequest struct {
@@ -25,7 +27,7 @@ func (pcr *PuppetCertificateRequest) HasDNSNames() bool {
 // Check to see if the password is a match without exposing the actual password
 // Returns false and nil if no password exists in the file
 func (pcr *PuppetCertificateRequest) PasswordMatch(pass string) (bool, error) {
-	if csrPass, err := pcr.challengePassword(); err != nil {
+	if csrPass, err := pcr.GetAttributeByOid(oidPuppetMap["challengePassword"]); err != nil {
 		return false, err
 	} else {
 		return csrPass == pass, nil
@@ -42,12 +44,18 @@ func NewPuppetCertificateRequest(bytes []byte) (*PuppetCertificateRequest, error
 	fmt.Println("Attemping to decode certificate request")
 	pemBlock, _ := pem.Decode(bytes)
 	cr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
-
 	if err != nil {
 		fmt.Printf("An error has occured %s", err)
 		return nil, err
 	}
 
+	if err != nil {
+		fmt.Errorf("An error has occured parsing for password %s", err)
+		return nil, err
+	}
+	if cr == nil {
+		return nil, errors.New("Failed to get valid certificate")
+	}
 	return &PuppetCertificateRequest{PemBlock: pemBlock, CertificateRequest: cr}, nil
 }
 
@@ -56,8 +64,24 @@ func (pcr *PuppetCertificateRequest) Bytes() []byte {
 }
 
 func (pcr *PuppetCertificateRequest) challengePassword() (string, error) {
-	pass, err := ParseChallengePassword(pcr.Bytes())
-	return pass, err
+	for _, ext := range pcr.Extensions {
+		if ext.Id.Equal(oidPuppetMap["challengePassword"]) {
+			return strings.TrimSpace(string(ext.Value)), nil
+		}
+	}
+	return "", errors.New("No password found")
+}
+
+func (pcr *PuppetCertificateRequest) GetAttributeByOid(oid asn1.ObjectIdentifier) (string, error) {
+	for _, ext := range pcr.Extensions {
+		if ext.Id.Equal(oid) {
+			if len(ext.Value) > 0 {
+				return strings.TrimSpace(string(ext.Value)), nil
+			}
+			return "", nil
+		}
+	}
+	return "", nil
 }
 
 var oidPuppetMap = map[string]asn1.ObjectIdentifier{
@@ -86,6 +110,7 @@ var oidPuppetMap = map[string]asn1.ObjectIdentifier{
 	"pp_cloudplatform":    {1, 3, 6, 1, 4, 1, 34380, 1, 1, 23},
 	"pp_apptier":          {1, 3, 6, 1, 4, 1, 34380, 1, 1, 24},
 	"pp_hostname":         {1, 3, 6, 1, 4, 1, 34380, 1, 1, 25},
+	"challengePassword":   {1, 2, 840, 113549, 1, 9, 7},
 }
 
 func PuppetExtensions() []pkix.Extension {

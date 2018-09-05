@@ -8,7 +8,7 @@ import (
 
 func TestNewPuppetCertificateRequest(t *testing.T) {
 	expect := "ubuntu.mydomain.local"
-	certBytes, err := ioutil.ReadFile("/Users/cyberious/gopath/src/github.com/cyberious/autosign/certs/ubuntu.mydomain.local.pem")
+	certBytes, err := ioutil.ReadFile("../certs/ubuntu.mydomain.local.pem")
 	if err != nil {
 		t.Error("Was unable to read cert for test")
 	}
@@ -22,28 +22,43 @@ func TestNewPuppetCertificateRequest(t *testing.T) {
 }
 
 func TestPasswordMatch(t *testing.T) {
-	certBytes, err := ioutil.ReadFile("/Users/cyberious/gopath/src/github.com/cyberious/autosign/certs/ubuntu.pem")
+	expect := "test#5123k"
+	certBytes, err := ioutil.ReadFile("../certs/ubuntu.mydomain.local_withattributes.pem")
 	if err != nil {
-		t.Error("Was unable to read cert for test")
+		t.Errorf("Was unable to read cert for test:\n\t %s", err)
 	}
+	//p, _ := pem.Decode(certBytes)
 	pcr, err := NewPuppetCertificateRequest(certBytes)
-	if pass, err := pcr.PasswordMatch("test"); err != nil {
-		t.Errorf("An error has occured trying to match password %s\n", err)
-	} else {
-		if !pass {
-			pwd, _ := pcr.challengePassword()
-			t.Errorf("Expected to match password %s", pwd)
-		}
+	pwd, err := pcr.GetAttributeByOid(oidPuppetMap["challengePassword"])
+	if err != nil {
+		t.Errorf("Was unable to read cert for test:\n\t %s", err)
 	}
-	pwd, _ := pcr.challengePassword()
-	if pwd == "" {
-		t.Error("Password is empty")
+	if pwd != expect {
+		t.Errorf("Expected to match password %s\n", pwd)
+	}
+}
+
+func TestGetOid(t *testing.T) {
+	expect := "role::base"
+	certBytes, err := ioutil.ReadFile("../certs/ubuntu.mydomain.local_withattributes.pem")
+	if err != nil {
+		t.Errorf("Was unable to read cert for test:\n\t %s", err)
+	}
+
+	pcr, _ := NewPuppetCertificateRequest(certBytes)
+	oid := oidPuppetMap["pp_role"]
+	got, err := pcr.GetAttributeByOid(oid)
+	if err != nil {
+		t.Errorf("An error was raised looking for %s\n\t%s", oid.String(), err)
+	}
+	if got != expect {
+		t.Errorf("Expected to get %s but got %s", expect, got)
 	}
 
 }
 
 func TestHasDNSNames_False(t *testing.T) {
-	certBytes, err := ioutil.ReadFile("/Users/cyberious/gopath/src/github.com/cyberious/autosign/certs/ubuntu.mydomain.local.pem")
+	certBytes, err := ioutil.ReadFile("../certs/ubuntu.mydomain.local.pem")
 	if err != nil {
 		t.Error("Was unable to read cert for test")
 	}
@@ -57,7 +72,7 @@ func TestHasDNSNames_False(t *testing.T) {
 }
 
 func TestHasDNSNames_True(t *testing.T) {
-	certBytes, err := ioutil.ReadFile("/Users/cyberious/gopath/src/github.com/cyberious/autosign/certs/ubuntu.alt.local.pem")
+	certBytes, err := ioutil.ReadFile("../certs/ubuntu.alt.local.pem")
 	if err != nil {
 		t.Error("Was unable to read cert for test")
 	}

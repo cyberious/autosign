@@ -1,96 +1,100 @@
 package main
 
 import (
-	"encoding/asn1"
-	"errors"
-	"flag"
 	"fmt"
 	"github.com/cyberious/autosign/cert"
-	"io/ioutil"
 	"os"
+	"os/exec"
+	"regexp"
 	"strings"
 )
 
-var (
-	subjectNameOid = asn1.ObjectIdentifier{2, 5, 29, 17}
-	dnsAltNames    = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 14}
-	debug          = false
-	logger         Log
-)
-
-func init() {
-	defaultAutosignConfigFiles := []string{"/etc/puppetlabs/puppet/autosign.json", "/etc/puppetlabs/puppet/autosign.yaml", "autosign.json", "autosign.yaml"}
-	flag.String("config", strings.Join(defaultAutosignConfigFiles, ","), "Config files to parse for")
-	flag.BoolVar(&debug, "debug", false, "Enable debug mode")
-
+type Autosign struct {
+	Hostname           string
+	Config             AutosignConfig
+	CertificateRequest *cert.PuppetCertificateRequest
+	Logger             *Log
 }
 
-func isDebug() bool {
-	return debug
-}
-
-func main() {
-	flag.Parse()
-	if len(flag.Args()) == 0 {
-		fmt.Println("No hostname was parsed so nothing to test")
-		os.Exit(1)
-	}
-
-	hostname := flag.Args()[0]
-	if f := flag.CommandLine.Lookup("-help"); f != nil {
-		fmt.Printf("server set to %#v\n", f)
-		flag.PrintDefaults()
-		os.Exit(0)
-	}
-
-	fmt.Printf("Autosign initiated for hostname %s\n", hostname)
-	configFlag := flag.Lookup("config")
-	autosignConfig := NewAutosignConfig(strings.Split(configFlag.Value.String(), ","))
-	logger := createLogger(autosignConfig)
-	autoSignCert := Autosign{Hostname: hostname, Logger: logger, Config: autosignConfig}
-	if crt, err := readCert(); err != nil {
-		logger.Error(err, "An error has occured, halting: %s", err)
-		panic(err)
-	} else {
-		autoSignCert.CertificateRequest = crt
-		shouldSignCert(autoSignCert)
-	}
-}
-
-func shouldSignCert(as Autosign) {
-	fmt.Printf("Autosign for %s \n", as.Hostname)
-	if flag.Parsed() && isDebug() {
-		fmt.Println("Parsed arguments")
-		////fmt.Printf("Config files for %s\n", as.Confi)
-		//fmt.Printf("Debug set to %b\n", isDebug)
-	}
-
-	as.Logger.Info("Checking certificate for %s \n", as.Hostname)
-
-	if match, err := as.AutosignChallengMatch(); err != nil {
-		as.Logger.Error(err, "An error was raised during Autosign Challenge Match")
-	} else {
-		if match {
-			as.Logger.Info("A match was found for Autosign challenge for host %s", as.Hostname)
-			os.Exit(0)
+func (a *Autosign) AutosignChallengMatch() (bool, error) {
+	if a.Config.AutosignChallenge != "" && a.CertificateRequest.HasPassword() {
+		if match, err := a.CertificateRequest.PasswordMatch(a.Config.AutosignChallenge); err != nil {
+			a.Logger.Error(err, "Error occurred trying to parse challengePassword for %s \n", a.Hostname)
+			return false, err
 		} else {
-			as.Logger.Info("Certificate does not match requirements\n")
+			a.Logger.Info("Checking to see if password\n")
+			return match, nil
 		}
 	}
-	if as.HostnameMatch() {
-		as.Logger.Info("A match was found for Autosign challenge for hostname pattern %s", as.Hostname)
-		os.Exit(0)
+	return false, nil
+}
+
+func (a *Autosign) DnsAltNameMatch() (bool, error) {
+	pcr := a.CertificateRequest
+	if !pcr.HasDNSNames() {
+		a.Logger.Info("No DNS Alt Names\n")
+		if len(a.Config.AutosignPatterns) == 0 {
+			a.Logger.Info("Signing cert for %s: Reason, NO DNS Alt Names matches no pattern match set \n", a.Hostname)
+			return true, nil
+		} else {
+			return a.HostnameMatch(), nil
+		}
+	}
+	return false, nil
+}
+
+func (a *Autosign) LogCertDetails() {
+	cr := a.CertificateRequest
+	for i, name := range cr.Subject.Names {
+		a.Logger.Info("Name %d: \n\tType: %s\n\tValue: %s\n", i, name, name.Value)
+	}
+	a.Logger.Info("Subject: %s \nDNSNames: %s\n", cr.Subject.Names, cr.DNSNames)
+	if len(cr.Extensions) > 0 {
+		a.Logger.Info("Extensions: \n")
+		for i, ext := range cr.Extensions {
+			if len(ext.Value) != 0 {
+				a.Logger.Info("\t%d: %s = %s\n", i, ext.Id.String(), strings.TrimSpace(string(ext.Value)))
+			}
+		}
 	}
 }
 
-func readCert() (*cert.PuppetCertificateRequest, error) {
-	fileIn := os.Stdin
-	if fileIn == nil {
-		return nil, errors.New("No file was piped in, we should exit as a result, nothing to assert")
+func (a *Autosign) HostnameMatch() bool {
+	a.Logger.Info("Begining hostnamematch for %s\n", a.Hostname)
+	for _, pattern := range a.Config.AutosignPatterns {
+		a.Logger.Info("Checking pattern '%s'\n", pattern)
+		if match, err := regexp.MatchString(pattern, a.Hostname); err != nil {
+			a.Logger.Warn("Failed to compile pattern %s\n\t%s\n", pattern, err)
+		} else {
+			if match {
+				a.Logger.Info("Matching pattern %s for CertName %s\n", pattern, a.Hostname)
+				return true /* return on first match */
+			}
+		}
 	}
-	if certBytes, err := ioutil.ReadFile(fileIn.Name()); err != nil {
-		return nil, errors.New("Unable to read cert from stdin")
-	} else {
-		return cert.NewPuppetCertificateRequest(certBytes)
+	a.Logger.Info("Do not sign %s Failed to match any pattern\n", a.Hostname)
+	return false
+}
+
+func HostnameMatch(ac AutosignConfig, hostname string) {
+
+}
+
+func (a *Autosign) CheckDNSAltNamesIfAny() bool {
+	return false
+}
+
+func signCertificateRequest(hostname string) {
+	//logInfo("Challenge password accepted")
+	app := "/opt/puppetlabs/bin/puppet"
+	args := []string{"cert", "sign", hostname, "--allow-dns-alt-names", "--ssldir", "/etc/puppetlabs/puppet/ssl"}
+	cmd := exec.Command(app, args...)
+	err := cmd.Run()
+	if err != nil {
+		fmt.Printf("An error occured %s\n", err)
+		os.Exit(1)
+		//logError(err, "Failed to run command %s\n", cmd.Args)
 	}
+	err = cmd.Wait()
+	//logInfo("Output from command %s", os.Stdout)
 }
