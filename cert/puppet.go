@@ -10,48 +10,48 @@ import (
 	"strings"
 )
 
+// PuppetCertificateRequest is a representation of the PuppetCertificateSigningRequest which will
+// hold the Hostname as well as the x509.CertificateRequest and the PemBlock in order to see the raw un-parsed data.
 type PuppetCertificateRequest struct {
+	Hostname string
 	PemBlock *pem.Block
 	*x509.CertificateRequest
 }
 
+// HasDNSNames returns false if no request is present or the certificate DNSNames is empty
 func (pcr *PuppetCertificateRequest) HasDNSNames() bool {
 	if pcr.CertificateRequest == nil {
 		return false
 	}
 
-	fmt.Println("Attempting to parse for DNS Names")
 	return len(pcr.CertificateRequest.DNSNames) > 0
 }
 
-// Check to see if the password is a match without exposing the actual password
+// PasswordMatch check to see if the password is a match without exposing the actual password
 // Returns false and nil if no password exists in the file
 func (pcr *PuppetCertificateRequest) PasswordMatch(pass string) (bool, error) {
-	if csrPass, err := pcr.GetAttributeByOid(oidPuppetMap["challengePassword"]); err != nil {
+	csrPass, err := pcr.GetAttributeByOid(oidPuppetMap["challengePassword"])
+	if err != nil {
 		return false, err
-	} else {
-		return csrPass == pass, nil
 	}
-	return false, nil
+
+	return csrPass == pass, nil
 }
 
+// HasPassword attempts to get the password attribute and if not present or an empty string it will return false
 func (pcr *PuppetCertificateRequest) HasPassword() bool {
 	pass, _ := pcr.challengePassword()
 	return pass != ""
 }
 
-func NewPuppetCertificateRequest(bytes []byte) (*PuppetCertificateRequest, error) {
-	fmt.Println("Attemping to decode certificate request")
+// NewPuppetCertificateRequest returns a new PuppetCertificateRequest and requires certificate bytes and the hostname
+func NewPuppetCertificateRequest(bytes []byte, hostname string) (*PuppetCertificateRequest, error) {
+	fmt.Println("Attempting to decode certificate request")
 	pemBlock, _ := pem.Decode(bytes)
 	cr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
 	if err != nil {
-		fmt.Printf("An error has occured %s", err)
-		return nil, err
-	}
-
-	if err != nil {
-		fmt.Errorf("An error has occured parsing for password %s", err)
-		return nil, err
+		newError := fmt.Errorf("an error has occured parsing the certificate %s", err)
+		return nil, newError
 	}
 	if cr == nil {
 		return nil, errors.New("Failed to get valid certificate")
@@ -59,29 +59,31 @@ func NewPuppetCertificateRequest(bytes []byte) (*PuppetCertificateRequest, error
 	return &PuppetCertificateRequest{PemBlock: pemBlock, CertificateRequest: cr}, nil
 }
 
+// Bytes is a simple wrapper to simplify the Pemblock.Bytes call
 func (pcr *PuppetCertificateRequest) Bytes() []byte {
 	return pcr.PemBlock.Bytes
 }
 
 func (pcr *PuppetCertificateRequest) challengePassword() (string, error) {
-	for _, ext := range pcr.Extensions {
-		if ext.Id.Equal(oidPuppetMap["challengePassword"]) {
-			return strings.TrimSpace(string(ext.Value)), nil
-		}
+	pwd, _ := pcr.GetAttributeByOid(oidPuppetMap["challengePassword"])
+	if pwd == "" {
+		return "", errors.New("No password found")
+
 	}
-	return "", errors.New("No password found")
+	return pwd, nil
 }
 
+// GetAttributeByOid retrieves the string value from the certificate if it exists
 func (pcr *PuppetCertificateRequest) GetAttributeByOid(oid asn1.ObjectIdentifier) (string, error) {
 	for _, ext := range pcr.Extensions {
 		if ext.Id.Equal(oid) {
 			if len(ext.Value) > 0 {
 				return strings.TrimSpace(string(ext.Value)), nil
 			}
-			return "", nil
+			return "", errors.New("Oid found but no value set")
 		}
 	}
-	return "", nil
+	return "", errors.New("No object found")
 }
 
 var oidPuppetMap = map[string]asn1.ObjectIdentifier{
@@ -113,6 +115,12 @@ var oidPuppetMap = map[string]asn1.ObjectIdentifier{
 	"challengePassword":   {1, 2, 840, 113549, 1, 9, 7},
 }
 
+// PuppetExtensionsMap is the string to oid mappings used by puppet
+func PuppetExtensionsMap() map[string]asn1.ObjectIdentifier {
+	return oidPuppetMap
+}
+
+// PuppetExtensions is an array of extensions supported by puppet by default i.e. pp_role, pp_datacenter
 func PuppetExtensions() []pkix.Extension {
 	exts := []pkix.Extension{}
 	for k := range oidPuppetMap {

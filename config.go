@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
-	"log"
 	"os"
 	"regexp"
 )
@@ -14,12 +13,18 @@ const configDefaultLocation = "/etc/puppetlabs/puppet/"
 const configFile = "/etc/puppetlabs/puppet/autosign.yaml"
 const logFile = "puppetlabs-autosign.log"
 
+// AutosignConfig is the struct representation of the config file we should be loading from the file system
+// it has 4 parts to it:
+// AutosignChallenge string is the challengePassword string to be tested
+// AutosignPatterns []string of golang regexp to attempt to match against
+// LogFile string of the file to logfile location
+// Debug bool whether to increase loglevel to debug
+// Logger is a point
 type AutosignConfig struct {
 	AutosignChallenge string   `json:"challengePassword", yaml:"challengePassword"`
 	AutosignPatterns  []string `json:"autosignPatterns", yaml:"autosignPatterns"`
 	LogFile           string   `json:"logFile", yaml:"logFile"`
 	Debug             bool     `json:"debug", yaml:debug"`
-	Logger            *log.Logger
 }
 
 func matchPattern(pattern string, subject string) bool {
@@ -27,49 +32,57 @@ func matchPattern(pattern string, subject string) bool {
 	if err != nil {
 		fmt.Errorf("Pattern %s was unable to be read;\n\t%s", pattern, err)
 		return false
-	} else {
-		return matched
 	}
+
+	return matched
 }
 
-func readConfigFile(config string) []byte {
+func readConfigFile(config string) ([]byte, error) {
 	autosign, err := ioutil.ReadFile(config)
 	if err != nil {
-		fmt.Errorf("Unable to read config file %s\n", config)
+		configFileError := fmt.Errorf("unable to read config file %s", config)
+		return []byte{}, configFileError
 	}
-	return autosign
+	return autosign, nil
 }
 
-func NewAutosignConfig(autoloadConfigFiles []string) AutosignConfig {
-	t := AutosignConfig{LogFile: logFile}
+// NewAutosignConfig will load the first config file found and return a new AutosignConfig
+func NewAutosignConfig(autoloadConfigFiles []string) (*AutosignConfig, error) {
+	t := &AutosignConfig{LogFile: logFile}
 	currentConfigFile := pickFile(autoloadConfigFiles)
 
 	if currentConfigFile == "" {
-		fmt.Printf("Unable to read file %s\n", currentConfigFile)
-		return t
+		return t, fmt.Errorf("unable to read file %s", currentConfigFile)
 	}
 
-	autosign := readConfigFile(currentConfigFile)
+	autosign, err := readConfigFile(currentConfigFile)
+	if err != nil {
+
+	}
 	fmt.Printf("Parsing config file %s\n", currentConfigFile)
+
 	if matchPattern("/.*.yaml/", currentConfigFile) {
 		if err := yaml.Unmarshal([]byte(autosign), &t); err != nil {
-			fmt.Errorf("Unable to read config file;\n%s", err)
+			return nil, fmt.Errorf("Unable to read config file;\n%s", err)
 		}
 	}
+
 	if matchPattern(".*.json", currentConfigFile) {
 		json.Valid(autosign)
 		if err := json.Unmarshal(autosign, &t); err != nil {
-			fmt.Errorf("Unable to read config file;\n%s\n", err)
+			return nil, fmt.Errorf("unable to read config file: %s", err)
 		}
 	}
 
-	fmt.Printf(
-		"Loaded config map of:\n\tPatterns: %s\n\tLogfile: %s\n\tChallenge: %s\n",
-		t.AutosignPatterns,
-		t.LogFile,
-		t.AutosignChallenge)
+	if debug {
+		fmt.Printf(
+			"Loaded config map of:\n\tPatterns: %s\n\tLogfile: %s\n\tChallenge: %s\n",
+			t.AutosignPatterns,
+			t.LogFile,
+			t.AutosignChallenge)
+	}
 
-	return t
+	return t, nil
 }
 
 func pickFile(possibleConfigFiles []string) string {

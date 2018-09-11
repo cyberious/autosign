@@ -12,7 +12,7 @@ func TestNewPuppetCertificateRequest(t *testing.T) {
 	if err != nil {
 		t.Error("Was unable to read cert for test")
 	}
-	pcr, err := NewPuppetCertificateRequest(certBytes)
+	pcr, err := NewPuppetCertificateRequest(certBytes, "ubuntu.mydomain.local")
 	if pcr == nil {
 		t.Error("No valid puppet cert was return")
 	}
@@ -28,10 +28,13 @@ func TestPasswordMatch(t *testing.T) {
 		t.Errorf("Was unable to read cert for test:\n\t %s", err)
 	}
 	//p, _ := pem.Decode(certBytes)
-	pcr, err := NewPuppetCertificateRequest(certBytes)
-	pwd, err := pcr.GetAttributeByOid(oidPuppetMap["challengePassword"])
+	pcr, err := NewPuppetCertificateRequest(certBytes, "ubuntu.mydomain.local")
 	if err != nil {
 		t.Errorf("Was unable to read cert for test:\n\t %s", err)
+	}
+	pwd, err := pcr.challengePassword()
+	if err != nil {
+		t.Errorf("Unable to parse for challengePassword\n\t %s", err)
 	}
 	if pwd != expect {
 		t.Errorf("Expected to match password %s\n", pwd)
@@ -45,7 +48,7 @@ func TestGetOid(t *testing.T) {
 		t.Errorf("Was unable to read cert for test:\n\t %s", err)
 	}
 
-	pcr, _ := NewPuppetCertificateRequest(certBytes)
+	pcr, _ := NewPuppetCertificateRequest(certBytes, "ubuntu.mydomain.local")
 	oid := oidPuppetMap["pp_role"]
 	got, err := pcr.GetAttributeByOid(oid)
 	if err != nil {
@@ -62,7 +65,7 @@ func TestHasDNSNames_False(t *testing.T) {
 	if err != nil {
 		t.Error("Was unable to read cert for test")
 	}
-	pcr, err := NewPuppetCertificateRequest(certBytes)
+	pcr, err := NewPuppetCertificateRequest(certBytes, "ubuntu.mydomain.local")
 	if err != nil {
 		t.Error("Error occured during parsing of certificate")
 	}
@@ -76,7 +79,7 @@ func TestHasDNSNames_True(t *testing.T) {
 	if err != nil {
 		t.Error("Was unable to read cert for test")
 	}
-	pcr, err := NewPuppetCertificateRequest(certBytes)
+	pcr, err := NewPuppetCertificateRequest(certBytes, "ubuntu.alt.local")
 	if err != nil {
 		t.Error("Error occured during parsing of certificate")
 	}

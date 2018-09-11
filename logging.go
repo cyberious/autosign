@@ -6,26 +6,30 @@ import (
 	"os"
 )
 
-type Log struct {
-	Logger *log.Logger
+type autosignLogger struct {
+	*log.Logger
 }
 
-func (l *Log) Info(msg string, int ...interface{}) {
-	fmt.Printf(msg, int...)
-	l.Logger.Printf(msg, int...)
+// Info logs to both println as well as the log file
+func (l *autosignLogger) Info(msg string, int ...interface{}) {
+
+	fmt.Printf("[INFO] "+msg, int...)
+	l.Logger.Printf("[INFO] "+msg, int...)
 }
 
-func (l *Log) Error(err error, msg string, int ...interface{}) {
-	fmt.Errorf(msg, int...)
-	l.Logger.Fatal(err)
+// Error logs to both fmt.Errorf as well as the log file with fatal
+func (l *autosignLogger) Error(err error, msg string, int ...interface{}) {
+	fmt.Errorf("[ERROR] "+msg, int...)
+	l.Fatal(err)
 }
 
-func (l *Log) Warn(msg string, int ...interface{}) {
+// Warn will log with a ["Warning"] label
+func (l *autosignLogger) Warn(msg string, int ...interface{}) {
 	fmt.Printf("[WARNING] "+msg, int...)
-	l.Logger.Printf("[WARNING] "+msg, int)
+	l.Printf("[WARNING] "+msg, int)
 }
 
-func createLogger(autosignConfig AutosignConfig) *Log {
+func createLogger(autosignConfig *AutosignConfig) *autosignLogger {
 	fmt.Println("Creating log")
 	if f, err := os.Create(autosignConfig.LogFile); err != nil {
 		fmt.Printf("Unable to create logfile: %s\n", err)
@@ -36,7 +40,7 @@ func createLogger(autosignConfig AutosignConfig) *Log {
 		}
 		defer f.Close()
 		logger := log.New(writer, "[autosign]", 1)
-		l := Log{}
+		l := autosignLogger{}
 		l.Logger = logger
 		return &l
 	}

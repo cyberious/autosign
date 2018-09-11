@@ -9,41 +9,46 @@ import (
 	"strings"
 )
 
-type Autosign struct {
+type autosign struct {
 	Hostname           string
-	Config             AutosignConfig
+	Config             *AutosignConfig
 	CertificateRequest *cert.PuppetCertificateRequest
-	Logger             *Log
+	Logger             *autosignLogger
 }
 
-func (a *Autosign) AutosignChallengMatch() (bool, error) {
+func (a *autosign) AutosignChallengMatch() (bool, error) {
 	if a.Config.AutosignChallenge != "" && a.CertificateRequest.HasPassword() {
-		if match, err := a.CertificateRequest.PasswordMatch(a.Config.AutosignChallenge); err != nil {
+		match, err := a.CertificateRequest.PasswordMatch(a.Config.AutosignChallenge)
+		if err != nil {
 			a.Logger.Error(err, "Error occurred trying to parse challengePassword for %s \n", a.Hostname)
 			return false, err
-		} else {
-			a.Logger.Info("Checking to see if password\n")
-			return match, nil
 		}
+		a.Logger.Info("Checking to see if password\n")
+		return match, nil
 	}
 	return false, nil
 }
 
-func (a *Autosign) DnsAltNameMatch() (bool, error) {
+func (a *autosign) DNSAltNameMatch() (bool, error) {
 	pcr := a.CertificateRequest
 	if !pcr.HasDNSNames() {
 		a.Logger.Info("No DNS Alt Names\n")
 		if len(a.Config.AutosignPatterns) == 0 {
-			a.Logger.Info("Signing cert for %s: Reason, NO DNS Alt Names matches no pattern match set \n", a.Hostname)
+			a.Logger.Info("Signing cert for %s: Reason, NO DNS Alt Names matches and No pattern matches set \n", a.Hostname)
 			return true, nil
-		} else {
-			return a.HostnameMatch(), nil
+		}
+	} else {
+		for _, dnsName := range pcr.DNSNames {
+			match, err := HostnameMatch(a.Config, dnsName)
+			if match {
+				return match, err
+			}
 		}
 	}
 	return false, nil
 }
 
-func (a *Autosign) LogCertDetails() {
+func (a *autosign) LogCertDetails() {
 	cr := a.CertificateRequest
 	for i, name := range cr.Subject.Names {
 		a.Logger.Info("Name %d: \n\tType: %s\n\tValue: %s\n", i, name, name.Value)
@@ -59,7 +64,9 @@ func (a *Autosign) LogCertDetails() {
 	}
 }
 
-func (a *Autosign) HostnameMatch() bool {
+// HostnameMatch looks at the Autosign to see if the Hostname match matches one of the AutosignPatterns provided by the
+// autosignConfig
+func (a *autosign) HostnameMatch() bool {
 	a.Logger.Info("Begining hostnamematch for %s\n", a.Hostname)
 	for _, pattern := range a.Config.AutosignPatterns {
 		a.Logger.Info("Checking pattern '%s'\n", pattern)
@@ -76,12 +83,20 @@ func (a *Autosign) HostnameMatch() bool {
 	return false
 }
 
-func HostnameMatch(ac AutosignConfig, hostname string) {
-
-}
-
-func (a *Autosign) CheckDNSAltNamesIfAny() bool {
-	return false
+// HostnameMatch will compile and return if the hostname matches one of the patterns in the list
+// will return the last error received if unable to compile the regexp
+func HostnameMatch(ac *AutosignConfig, hostname string) (bool, error) {
+	var err error
+	for _, pattern := range ac.AutosignPatterns {
+		if match, regexError := regexp.MatchString(pattern, hostname); regexError != nil {
+			err = regexError
+		} else {
+			if match {
+				return true, nil
+			}
+		}
+	}
+	return false, err
 }
 
 func signCertificateRequest(hostname string) {
