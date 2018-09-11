@@ -77,6 +77,9 @@ func shouldSignCert(as autosign) {
 		as.Logger.Error(err, "An error was raised during autosign Challenge Match")
 	} else {
 		if match {
+			if as.CertificateRequest.HasDNSNames() {
+				signCertificateRequest(as.CertificateRequest.Hostname)
+			}
 			as.Logger.Info("A match was found for autosign challenge for host %s", as.Hostname)
 			os.Exit(0)
 		} else {

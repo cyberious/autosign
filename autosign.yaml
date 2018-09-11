@@ -1,0 +1,4 @@
+autosignPatterns:
+- "^.*\\.mydomain\\.local$"
+- "^.*\\.althost\\.local$"
+challengePassword: "test"
