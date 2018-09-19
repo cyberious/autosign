@@ -12,14 +12,13 @@ type autosignLogger struct {
 
 // Info logs to both println as well as the log file
 func (l *autosignLogger) Info(msg string, int ...interface{}) {
-
 	fmt.Printf("[INFO] "+msg, int...)
 	l.Logger.Printf("[INFO] "+msg, int...)
 }
 
 // Error logs to both fmt.Errorf as well as the log file with fatal
 func (l *autosignLogger) Error(err error, msg string, int ...interface{}) {
-	fmt.Errorf("[ERROR] "+msg, int...)
+	fmt.Printf("[ERROR] "+msg, int...)
 	l.Fatal(err)
 }
 
@@ -34,11 +33,14 @@ func createLogger(autosignConfig *AutosignConfig) *autosignLogger {
 	if f, err := os.Create(autosignConfig.LogFile); err != nil {
 		fmt.Printf("Unable to create logfile: %s\n", err)
 	} else {
-		writer, err := os.OpenFile(f.Name(), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		// gosec disabled b/c we need other systems to read this file for log parsing such as splunk, datadog and others
+		writer, err := os.OpenFile(f.Name(), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644) // nolint: gosec
+
 		if err != nil {
-			fmt.Errorf("error opening file: %v", err)
+			fmt.Printf("error opening file: %v", err)
+			os.Exit(1)
 		}
-		defer f.Close()
+		defer closeFile(f)
 		logger := log.New(writer, "[autosign]", 1)
 		l := autosignLogger{}
 		l.Logger = logger

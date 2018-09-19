@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/asn1"
 	"errors"
 	"flag"
 	"fmt"
@@ -9,14 +8,14 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"path/filepath"
+	"io"
+	"log"
 )
 
 var (
-	subjectNameOid = asn1.ObjectIdentifier{2, 5, 29, 17}
-	dnsAltNames    = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 14}
-	debug          = false
-	certFile       string
-	logger         autosignLogger
+	debug    = false
+	certFile string
 )
 
 func init() {
@@ -24,6 +23,20 @@ func init() {
 	flag.String("config", strings.Join(defaultAutosignConfigFiles, ","), "Config files to parse for")
 	flag.BoolVar(&debug, "debug", false, "Enable debug mode")
 	flag.StringVar(&certFile, "cert", "", "Certificate file to test")
+}
+
+func cleanFileOpen(filename string) (*os.File, error) {
+	sanitizedPath := filepath.Join(filepath.Base(filename), filepath.Clean(filename))
+	f, err := os.Open(sanitizedPath) // nolint: gosec
+	defer closeFile(f)
+	return f, err
+}
+
+func closeFile(c io.Closer) {
+	err := c.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func isDebug() bool {
@@ -48,7 +61,8 @@ func main() {
 	configFlag := flag.Lookup("config")
 	autosignConfig, err := NewAutosignConfig(strings.Split(configFlag.Value.String(), ","))
 	if err != nil {
-
+		fmt.Printf("An error occured parsing the autosign config\n%s", err)
+		os.Exit(1)
 	}
 	logger := createLogger(autosignConfig)
 	autoSignCert := autosign{Hostname: hostname, Logger: logger, Config: autosignConfig}
@@ -96,7 +110,7 @@ func readCert(hostname string) (*cert.PuppetCertificateRequest, error) {
 	var fileIn *os.File
 	if certFile != "" {
 		var err error
-		fileIn, err = os.Open(certFile)
+		fileIn, err = cleanFileOpen(certFile)
 		if err != nil {
 			return nil, err
 		}

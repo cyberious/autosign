@@ -13,6 +13,9 @@ func TestNewPuppetCertificateRequest(t *testing.T) {
 		t.Error("Was unable to read cert for test")
 	}
 	pcr, err := NewPuppetCertificateRequest(certBytes, "ubuntu.mydomain.local")
+	if err != nil {
+		t.Errorf("Unable to open file %s", err)
+	}
 	if pcr == nil {
 		t.Error("No valid puppet cert was return")
 	}

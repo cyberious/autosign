@@ -4,6 +4,6 @@ import (
 	"testing"
 )
 
-func TesthasDNSNames(t *testing.T) {
+func TestHasDNSNames(t *testing.T) {
 	t.Log("Yep")
 }

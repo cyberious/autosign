@@ -39,8 +39,10 @@ func (pcr *PuppetCertificateRequest) PasswordMatch(pass string) (bool, error) {
 }
 
 // HasPassword attempts to get the password attribute and if not present or an empty string it will return false
+// nolint due to the fact not all certs will have challengePassword are going to cause errors so we ignore it and return
+// based on empty string value
 func (pcr *PuppetCertificateRequest) HasPassword() bool {
-	pass, _ := pcr.challengePassword()
+	pass, _ := pcr.challengePassword() //nolint: gosec
 	return pass != ""
 }
 
@@ -65,9 +67,9 @@ func (pcr *PuppetCertificateRequest) Bytes() []byte {
 }
 
 func (pcr *PuppetCertificateRequest) challengePassword() (string, error) {
-	pwd, _ := pcr.GetAttributeByOid(oidPuppetMap["challengePassword"])
-	if pwd == "" {
-		return "", errors.New("No password found")
+	pwd, err := pcr.GetAttributeByOid(oidPuppetMap["challengePassword"])
+	if pwd == "" || err != nil {
+		return "", fmt.Errorf("no password found\n %s", err)
 
 	}
 	return pwd, nil

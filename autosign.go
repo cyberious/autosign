@@ -102,11 +102,13 @@ func HostnameMatch(ac *AutosignConfig, hostname string) (bool, error) {
 func signCertificateRequest(hostname string) {
 	app := "/opt/puppetlabs/bin/puppet"
 	args := []string{"cert", "sign", hostname, "--allow-dns-alt-names"}
-	cmd := exec.Command(app, args...)
+	cmd := exec.Command(app, args...) // nolint: gosec
 	err := cmd.Run()
 	if err != nil {
 		fmt.Printf("An error occured %s\n", err)
 		os.Exit(1)
 	}
-	err = cmd.Wait()
+	if err = cmd.Wait(); err != nil {
+		fmt.Printf("Unable to sign request for %s and error has occured\n%s", hostname, err)
+	}
 }

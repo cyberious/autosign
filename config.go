@@ -7,10 +7,9 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
+	"path/filepath"
 )
 
-const configDefaultLocation = "/etc/puppetlabs/puppet/"
-const configFile = "/etc/puppetlabs/puppet/autosign.yaml"
 const logFile = "puppetlabs-autosign.log"
 
 // AutosignConfig is the struct representation of the config file we should be loading from the file system
@@ -21,16 +20,16 @@ const logFile = "puppetlabs-autosign.log"
 // Debug bool whether to increase loglevel to debug
 // Logger is a point
 type AutosignConfig struct {
-	AutosignChallenge string   `json:"challengePassword", yaml:"challengePassword"`
-	AutosignPatterns  []string `json:"autosignPatterns", yaml:"autosignPatterns"`
-	LogFile           string   `json:"logFile", yaml:"logFile"`
-	Debug             bool     `json:"debug", yaml:debug"`
+	AutosignChallenge string   `json:"challengePassword" yaml:"challengePassword"`
+	AutosignPatterns  []string `json:"autosignPatterns" yaml:"autosignPatterns"`
+	LogFile           string   `json:"logFile" yaml:"logFile"`
+	Debug             bool     `json:"debug" yaml:"debug"`
 }
 
 func matchPattern(pattern string, subject string) bool {
 	matched, err := regexp.MatchString(pattern, subject)
 	if err != nil {
-		fmt.Errorf("Pattern %s was unable to be read;\n\t%s", pattern, err)
+		fmt.Printf("Pattern %s was unable to be read;\n\t%s", pattern, err)
 		return false
 	}
 
@@ -38,7 +37,7 @@ func matchPattern(pattern string, subject string) bool {
 }
 
 func readConfigFile(config string) ([]byte, error) {
-	autosign, err := ioutil.ReadFile(config)
+	autosign, err := ioutil.ReadFile(filepath.Clean(config))
 	if err != nil {
 		configFileError := fmt.Errorf("unable to read config file %s", config)
 		return []byte{}, configFileError
@@ -57,12 +56,13 @@ func NewAutosignConfig(autoloadConfigFiles []string) (*AutosignConfig, error) {
 
 	autosign, err := readConfigFile(currentConfigFile)
 	if err != nil {
-
+		fmt.Printf("An error occured reading the config file\n%s", err)
+		os.Exit(1)
 	}
 	fmt.Printf("Parsing config file %s\n", currentConfigFile)
 
 	if matchPattern("/.*.yaml/", currentConfigFile) {
-		if err := yaml.Unmarshal([]byte(autosign), &t); err != nil {
+		if err := yaml.Unmarshal(autosign, &t); err != nil {
 			return nil, fmt.Errorf("Unable to read config file;\n%s", err)
 		}
 	}
